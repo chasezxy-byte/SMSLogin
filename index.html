@@ -425,11 +425,10 @@
   }
 
   /* ============ NAV ============ */
-const tabs = document.querySelectorAll('.tab');
+  const tabs = document.querySelectorAll('.tab');
   const views = {
     scan: document.getElementById('view-scan'),
     users: document.getElementById('view-users'),
-    card: document.getElementById('view-card'),
     log: document.getElementById('view-log'),
   };
   
@@ -437,7 +436,9 @@ const tabs = document.querySelectorAll('.tab');
     tabs.forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     Object.values(views).forEach(v=>v.classList.remove('active'));
-    views[t.dataset.view].classList.add('active');
+    if(views[t.dataset.view]){
+      views[t.dataset.view].classList.add('active');
+    }
     if(t.dataset.view === 'users') renderUserTable();
     if(t.dataset.view === 'log') renderLog();
   }));
@@ -599,8 +600,8 @@ const tabs = document.querySelectorAll('.tab');
     setFields(user);
     avatarNote.textContent = user.name + (currentMode === 'in' ? ' បានចូល' : ' បានចេញ');
     toast((currentMode === 'in' ? 'បានកត់ត្រា៖ ចូល — ' : 'បានកត់ត្រា៖ ចេញ — ') + user.name);
-    if(views.users.classList.contains('active')) renderUserTable();
-    if(views.log.classList.contains('active')) renderLog();
+    if(views.users && views.users.classList.contains('active')) renderUserTable();
+    if(views.log && views.log.classList.contains('active')) renderLog();
   }
 
   function fmtTime(iso){

@@ -80,6 +80,22 @@
   .pill-btn.in{background:var(--green);}
   .pill-btn.in:hover{background:var(--green-dark);}
   .pill-btn:disabled{background:#b7bcc6;box-shadow:none;cursor:not-allowed;}
+  .pill-btn.mode-active{box-shadow:0 0 0 4px rgba(29,46,79,0.18), 0 3px 0 rgba(0,0,0,0.18);}
+  .mode-note{
+    text-align:center;font-size:15px;font-weight:700;margin:-6px 0 20px;padding:10px;
+    border-radius:9px;border:2px solid var(--line-soft);color:var(--navy-soft);
+  }
+  .mode-note.mode-in{color:var(--green-dark);border-color:var(--green);background:#eefaf1;}
+  .mode-note.mode-out{color:var(--red-dark);border-color:var(--red);background:#fdeeee;}
+  .scan-input-wrap{margin-bottom:18px;}
+  .scan-input-wrap label{display:block;font-size:13.5px;color:var(--navy-soft);margin-bottom:6px;}
+  #manual-id{
+    width:100%;font-size:20px;padding:16px 18px;border:2.5px solid var(--navy);border-radius:12px;
+    text-align:center;letter-spacing:0.03em;
+  }
+  .camera-toggle-row{text-align:center;margin-top:10px;}
+  .camera-toggle-row .btn{font-size:13px;padding:8px 14px;}
+  .camera-hint{font-size:12.5px;color:var(--navy-soft);text-align:center;margin-top:6px;}
 
   .avatar-box{
     position:relative;border:2px solid var(--line);border-radius:22px;overflow:hidden;
@@ -215,9 +231,16 @@
     <div class="scan-grid">
       <div>
         <div class="btn-row">
-          <button class="pill-btn out" id="btn-check-out" disabled>ចេញ</button>
-          <button class="pill-btn in" id="btn-check-in" disabled>ចូល</button>
+          <button class="pill-btn out" id="btn-check-out">ចេញ</button>
+          <button class="pill-btn in mode-active" id="btn-check-in">ចូល</button>
         </div>
+        <div class="mode-note mode-in" id="mode-note">ម៉ូតបច្ចុប្បន្ន៖ សិស្សគ្រប់រូបដែលស្កេន ឬ វាយបញ្ចូលលេខ នឹងកត់ត្រាថា <b>ចូល</b> ស្វ័យប្រវត្តិ</div>
+
+        <div class="scan-input-wrap">
+          <label for="manual-id">វាយបញ្ចូល ឬ ស្កេនលេខអត្តលេខ (ចុច Enter)</label>
+          <input type="text" id="manual-id" placeholder="បញ្ចូលលេខអត្តលេខ…" autofocus autocomplete="off">
+        </div>
+
         <div class="avatar-box" id="avatar-box">
           <video id="video" playsinline muted style="display:none;"></video>
           <div class="avatar-placeholder" id="avatar-placeholder">
@@ -225,15 +248,15 @@
               <circle cx="50" cy="34" r="19"/>
               <path d="M18 88 C18 62 34 54 50 54 C66 54 82 62 82 88" stroke-linecap="round"/>
             </svg>
-            <div class="avatar-note" id="avatar-note">ស្កេនកូដ QR ដើម្បីបង្ហាញព័ត៌មានសិស្ស</div>
+            <div class="avatar-note" id="avatar-note">ស្នាមមុខសិស្សនឹងបង្ហាញនៅទីនេះបន្ទាប់ពីស្កេន</div>
           </div>
         </div>
-        <div class="scan-controls">
-          <button class="btn solid" id="btn-start-scan">ចាប់ផ្តើមស្កេន</button>
-          <button class="btn" id="btn-stop-scan" style="display:none;">បញ្ឈប់</button>
-          <input type="text" id="manual-id" placeholder="បញ្ចូលលេខអត្តលេខដោយដៃ">
-          <button class="btn" id="manual-submit">ស្វែងរក</button>
+
+        <div class="camera-toggle-row">
+          <button class="btn" id="btn-start-scan">បើកកាមេរ៉ាស្កេន QR (ស្រេចចិត្ត)</button>
+          <button class="btn" id="btn-stop-scan" style="display:none;">បិទកាមេរ៉ា</button>
         </div>
+        <div class="camera-hint">ប្រសិនបើកាមេរ៉ាមិនដំណើរការ សូមប្រើប្រាស់ប្រអប់វាយបញ្ចូលខាងលើជំនួស — ម៉ាស៊ីនស្កេនកាតដៃភ្ជាប់ USB ក៏ដំណើរការតាមរយៈប្រអប់នេះបានផងដែរ។</div>
       </div>
 
       <div>
@@ -466,7 +489,8 @@
   let scanLoopHandle = null;
   let lastScanValue = null;
   let lastScanTime = 0;
-  let staged = null; // currently loaded user waiting for check-in/out action
+  let currentMode = 'in'; // 'in' or 'out' — set by the teacher, applies to every scan until changed
+  const manualInput = document.getElementById('manual-id');
 
   async function startScanner(){
     try{
@@ -479,7 +503,7 @@
       btnStop.style.display = 'inline-block';
       tick();
     }catch(err){
-      toast('មិនអាចប្រើកាមេរ៉ាបានទេ សូមប្រើការបញ្ចូលដោយដៃ');
+      toast('មិនអាចប្រើកាមេរ៉ាបានទេ សូមប្រើប្រអប់វាយបញ្ចូលខាងលើជំនួស');
     }
   }
   function stopScanner(){
@@ -514,34 +538,69 @@
   function loadFromCode(rawValue){
     let id = rawValue;
     try{ const parsed = JSON.parse(rawValue); if(parsed && parsed.id) id = parsed.id; }catch(e){}
-    stageUser(id);
+    processId(id);
   }
 
-  document.getElementById('manual-submit').addEventListener('click', submitManual);
-  document.getElementById('manual-id').addEventListener('keydown', e => { if(e.key === 'Enter') submitManual(); });
+  // Mode buttons: clicking one sets the mode for every scan/entry that follows,
+  // it does NOT act on a single student by itself.
+  const btnModeIn = document.getElementById('btn-check-in');
+  const btnModeOut = document.getElementById('btn-check-out');
+  const modeNote = document.getElementById('mode-note');
+  function setMode(mode){
+    currentMode = mode;
+    btnModeIn.classList.toggle('mode-active', mode === 'in');
+    btnModeOut.classList.toggle('mode-active', mode === 'out');
+    modeNote.classList.toggle('mode-in', mode === 'in');
+    modeNote.classList.toggle('mode-out', mode === 'out');
+    modeNote.innerHTML = 'ម៉ូតបច្ចុប្បន្ន៖ សិស្សគ្រប់រូបដែលស្កេន ឬ វាយបញ្ចូលលេខ នឹងកត់ត្រាថា <b>' + (mode === 'in' ? 'ចូល' : 'ចេញ') + '</b> ស្វ័យប្រវត្តិ';
+    manualInput.focus();
+  }
+  btnModeIn.addEventListener('click', () => setMode('in'));
+  btnModeOut.addEventListener('click', () => setMode('out'));
+
+  // The manual input doubles as the target for USB/handheld QR & barcode scanners,
+  // which type the code then send Enter automatically — so keeping it focused
+  // makes hardware scanners work without any extra setup.
+  manualInput.addEventListener('keydown', e => { if(e.key === 'Enter') submitManual(); });
   function submitManual(){
-    const val = document.getElementById('manual-id').value.trim();
+    const val = manualInput.value.trim();
     if(!val) return;
-    stageUser(val);
-    document.getElementById('manual-id').value = '';
+    processId(val);
+    manualInput.value = '';
+    manualInput.focus();
   }
+  function refocusManualInput(){
+    if(!userModalOpen() && !qrModalOpen()) manualInput.focus();
+  }
+  function userModalOpen(){ return document.getElementById('user-modal-overlay').classList.contains('active'); }
+  function qrModalOpen(){ return document.getElementById('qr-modal-overlay').classList.contains('active'); }
+  document.addEventListener('click', (e) => {
+    // don't steal focus from other text inputs / selects the teacher is actively using
+    const tag = (e.target.tagName || '').toLowerCase();
+    if(tag !== 'input' && tag !== 'select' && tag !== 'textarea' && tag !== 'button'){
+      refocusManualInput();
+    }
+  });
 
-  function stageUser(id){
+  // Every scan/entry immediately logs attendance in whatever mode is currently active.
+  function processId(id){
     const user = findUser(id);
     if(!user){
-      staged = null;
       beep(false);
       setFields(null);
       avatarNote.textContent = 'រកមិនឃើញលេខអត្តលេខ "' + id + '"';
       toast('រកមិនឃើញលេខអត្តលេខនេះ');
-      updateActionButtons();
       return;
     }
-    staged = user;
+    const entry = { userId: user.id, name: user.name, role: user.role, type: currentMode, timestamp: new Date().toISOString() };
+    logs.push(entry);
+    saveLogs(logs);
     beep(true);
     setFields(user);
-    avatarNote.textContent = 'បានផ្ទុកព័ត៌មានរួចរាល់ សូមចុច ចូល ឬ ចេញ';
-    updateActionButtons();
+    avatarNote.textContent = user.name + (currentMode === 'in' ? ' បានចូល' : ' បានចេញ');
+    toast((currentMode === 'in' ? 'បានកត់ត្រា៖ ចូល — ' : 'បានកត់ត្រា៖ ចេញ — ') + user.name);
+    if(views.users.classList.contains('active')) renderUserTable();
+    if(views.log.classList.contains('active')) renderLog();
   }
 
   function fmtTime(iso){
@@ -567,29 +626,6 @@
       if(status === 'in') fbIn.classList.add('status-in');
       if(status === 'out') fbOut.classList.add('status-out');
     }
-  }
-
-  function updateActionButtons(){
-    const bIn = document.getElementById('btn-check-in');
-    const bOut = document.getElementById('btn-check-out');
-    bIn.disabled = !staged;
-    bOut.disabled = !staged;
-  }
-
-  document.getElementById('btn-check-in').addEventListener('click', () => doAttendance('in'));
-  document.getElementById('btn-check-out').addEventListener('click', () => doAttendance('out'));
-
-  function doAttendance(type){
-    if(!staged) return;
-    const entry = { userId: staged.id, name: staged.name, role: staged.role, type, timestamp: new Date().toISOString() };
-    logs.push(entry);
-    saveLogs(logs);
-    beep(true);
-    setFields(staged);
-    avatarNote.textContent = (type === 'in' ? staged.name + ' បានចូល' : staged.name + ' បានចេញ');
-    toast(type === 'in' ? 'បានកត់ត្រា៖ ចូល' : 'បានកត់ត្រា៖ ចេញ');
-    if(views.users.classList.contains('active')) renderUserTable();
-    if(views.log.classList.contains('active')) renderLog();
   }
 
   function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
@@ -770,6 +806,7 @@
   /* ============ INIT ============ */
   renderUserTable();
   renderLog();
+  setMode('in');
 
 })();
 </script>

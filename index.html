@@ -215,95 +215,171 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
 
-  /* ===== CARD DESIGNER ===== */
-  .card-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:20px;}
-  .card-toolbar .grp{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .card-toolbar select{min-width:200px;}
-  .btn.toggle-active{background:var(--navy);color:#fff;}
+ /* ============ CARD DESIGNER ============ */
+  let cardUnlocked = false;
+  let selectedElement = null;
+  const cardCanvas = document.getElementById('card-canvas');
+  const cardSettings = document.getElementById('card-settings');
+  const settingSize = document.getElementById('setting-size');
+  const settingVisible = document.getElementById('setting-visible');
+  const btnToggleLock = document.getElementById('btn-toggle-lock');
+  const previewSelect = document.getElementById('card-preview-select');
 
-  .card-stage{display:flex;flex-direction:column;align-items:center;gap:16px;}
-  .card-canvas{
-    position:relative;
-    width:100%;max-width:560px;
-    aspect-ratio:1.586/1;
-    background:#fff;border:2px solid var(--line);border-radius:16px;
-    overflow:hidden;
-    container-type:inline-size;
-    container-name:card;
+  function populateCardPreviewSelect(){
+    previewSelect.innerHTML = '<option value="">— គំរូ (Placeholder) —</option>' + 
+      users.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${u.id})</option>`).join('');
   }
-  .card-canvas.unlocked{background-image:
-      linear-gradient(rgba(29,46,79,0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(29,46,79,0.06) 1px, transparent 1px);
-    background-size:5% 5%;
-  }
-  .card-el{
-    position:absolute;
-    color:var(--navy);
-    white-space:nowrap;
-    line-height:1.15;
-    font-weight:700;
-  }
-  .card-canvas.unlocked .card-el{cursor:grab;outline:1.5px dashed transparent;}
-  .card-canvas.unlocked .card-el:hover{outline-color:var(--navy-soft);}
-  .card-el.selected{outline:2px dashed var(--red) !important;}
-  .card-el.dragging{cursor:grabbing;opacity:0.85;}
-  .card-el[data-key="title"]{font-weight:700;}
-  .card-el .sub{font-weight:400;color:var(--navy-soft);}
+  populateCardPreviewSelect();
 
-  .card-photo-box{
-    width:100%;height:100%;border-radius:10px;border:2px solid var(--line);
-    background:#f0f1f4;display:flex;align-items:center;justify-content:center;overflow:hidden;
-  }
-  .card-photo-box img{width:100%;height:100%;object-fit:cover;display:block;}
-  .card-photo-box svg{width:55%;height:55%;color:var(--navy-soft);}
-  .card-qr-box{
-    width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;
-    border-radius:6px;
-  }
-  .card-qr-box canvas, .card-qr-box img{width:100% !important;height:100% !important;}
-
-  .card-settings{
-    width:100%;max-width:560px;border:2px solid var(--line-soft);border-radius:12px;
-    padding:14px 18px;display:none;gap:14px;flex-wrap:wrap;align-items:center;background:var(--soft);
-  }
-  .card-settings.show{display:flex;}
-  .card-settings .setting-group{display:flex;align-items:center;gap:8px;font-size:13.5px;}
-  .card-settings input[type=range]{width:130px;}
-  .card-settings label.chk{display:flex;align-items:center;gap:6px;cursor:pointer;}
-
-  .card-hint{font-size:13px;color:var(--navy-soft);text-align:center;max-width:560px;}
-
-  #print-all-container{display:none;}
-
-  @media print{
-    body *{visibility:hidden;}
-    #print-single-container, #print-single-container *,
-    #print-all-container, #print-all-container *{visibility:visible;}
-    #print-single-container, #print-all-container{
-      position:absolute;top:0;left:0;width:100%;display:block;
+  previewSelect.addEventListener('change', () => {
+    const user = findUser(previewSelect.value);
+    if(!user){
+      document.getElementById('ce-name').textContent = 'ឈ្មោះគំរូ';
+      document.getElementById('ce-id').innerHTML = '<span class="sub">អត្តលេខ៖ </span>S-0000';
+      document.getElementById('ce-role').innerHTML = '<span class="sub">តួនាទី៖ </span>សិស្ស';
+      document.getElementById('ce-group').innerHTML = '<span class="sub">ថ្នាក់/ផ្នែក៖ </span>—';
+      document.getElementById('ce-room').innerHTML = '<span class="sub">បន្ទប់៖ </span>—';
+      document.getElementById('ce-year').innerHTML = '<span class="sub">ឆ្នាំសិក្សា៖ </span>—';
+      document.getElementById('card-photo-box').innerHTML = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6"><circle cx="50" cy="34" r="19"/><path d="M18 88 C18 62 34 54 50 54 C66 54 82 62 82 88" stroke-linecap="round"/></svg>`;
+      document.getElementById('card-qr-box').innerHTML = '';
+      return;
     }
-    .card-print-item{
-      width:85.6mm;height:54mm;position:relative;border:1px solid #ccc;
-      container-type:inline-size;container-name:card;overflow:hidden;
-      page-break-inside:avoid;margin:4mm;display:inline-block;
+    document.getElementById('ce-name').textContent = user.name;
+    document.getElementById('ce-id').innerHTML = `<span class="sub">អត្តលេខ៖ </span>${user.id}`;
+    document.getElementById('ce-role').innerHTML = `<span class="sub">តួនាទី៖ </span>${user.role === 'staff' ? 'បុគ្គលិក' : 'សិស្ស'}`;
+    document.getElementById('ce-group').innerHTML = `<span class="sub">ថ្នាក់/ផ្នែក៖ </span>${user.group || '—'}`;
+    document.getElementById('ce-room').innerHTML = `<span class="sub">បន្ទប់៖ </span>${user.room || '—'}`;
+    document.getElementById('ce-year').innerHTML = `<span class="sub">ឆ្នាំសិក្សា៖ </span>${user.year || '—'}`;
+    
+    const photoBox = document.getElementById('card-photo-box');
+    if(user.photo){
+      photoBox.innerHTML = `<img src="${user.photo}" alt="">`;
+    } else {
+      photoBox.innerHTML = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6"><circle cx="50" cy="34" r="19"/><path d="M18 88 C18 62 34 54 50 54 C66 54 82 62 82 88" stroke-linecap="round"/></svg>`;
     }
-    @page{margin:8mm;}
-  }
-</style>
-</head>
-<body>
 
-<div class="topbar">
-  <h1>ប្រព័ន្ធគ្រប់គ្រងវត្តមានសិស្ស</h1>
-  <div class="tabs">
-    <button class="tab active" data-view="scan">វត្តមាន</button>
-    <button class="tab" data-view="users">គ្រប់គ្រង</button>
-    <button class="tab" data-view="card">រចនាកាត</button>
-    <button class="tab" data-view="log">បញ្ជី</button>
-  </div>
-</div>
+    const qrBox = document.getElementById('card-qr-box');
+    qrBox.innerHTML = '';
+    new QRCode(qrBox, {
+      text: JSON.stringify({ id: user.id }),
+      width: 120,
+      height: 120,
+      colorDark: '#1D2E4F',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  });
 
-<main>
+  btnToggleLock.addEventListener('click', () => {
+    cardUnlocked = !cardUnlocked;
+    cardCanvas.classList.toggle('unlocked', cardUnlocked);
+    btnToggleLock.classList.toggle('toggle-active', cardUnlocked);
+    btnToggleLock.textContent = cardUnlocked ? '🔒 ចាក់សោទីតាំងវិញ' : '🔓 ដោះសោ ដើម្បីរៀបចំទីតាំង';
+    if(!cardUnlocked){
+      selectedElement?.classList.remove('selected');
+      selectedElement = null;
+      cardSettings.classList.remove('show');
+    }
+  });
+
+  document.getElementById('btn-reset-layout').addEventListener('click', () => {
+    if(confirm('តើអ្នកចង់កំណត់ទីតាំងកាតឡើងវិញមែនទេ?')){
+      localStorage.removeItem('checkpoint_card_layout');
+      location.reload();
+    }
+  });
+
+  cardCanvas.querySelectorAll('.card-el').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if(!cardUnlocked) return;
+      e.stopPropagation();
+      cardCanvas.querySelectorAll('.card-el').forEach(x => x.classList.remove('selected'));
+      selectedElement = el;
+      el.classList.add('selected');
+      cardSettings.classList.add('show');
+      
+      const computed = window.getComputedStyle(el);
+      const fs = parseFloat(computed.fontSize);
+      settingSize.value = isNaN(fs) ? 14 : fs;
+      settingVisible.checked = computed.display !== 'none';
+    });
+  });
+
+  cardCanvas.addEventListener('click', (e) => {
+    if(!cardUnlocked) return;
+    if(e.target === cardCanvas){
+      cardCanvas.querySelectorAll('.card-el').forEach(x => x.classList.remove('selected'));
+      selectedElement = null;
+      cardSettings.classList.remove('show');
+    }
+  });
+
+  settingSize.addEventListener('input', () => {
+    if(selectedElement){
+      selectedElement.style.fontSize = settingSize.value + 'px';
+    }
+  });
+
+  settingVisible.addEventListener('change', () => {
+    if(selectedElement){
+      selectedElement.style.display = settingVisible.checked ? 'block' : 'none';
+    }
+  });
+
+  document.getElementById('setting-deselect').addEventListener('click', () => {
+    selectedElement?.classList.remove('selected');
+    selectedElement = null;
+    cardSettings.classList.remove('show');
+  });
+
+  // Simple drag & drop logic for unlocked card items
+  let draggingEl = null, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+  cardCanvas.addEventListener('mousedown', (e) => {
+    if(!cardUnlocked) return;
+    const target = e.target.closest('.card-el');
+    if(!target) return;
+    draggingEl = target;
+    draggingEl.classList.add('dragging');
+    startX = e.clientX; startY = e.clientY;
+    const rect = draggingEl.getBoundingClientRect();
+    const parentRect = cardCanvas.getBoundingClientRect();
+    initialLeft = rect.left - parentRect.left;
+    initialTop = rect.top - parentRect.top;
+    draggingEl.style.left = initialLeft + 'px';
+    draggingEl.style.top = initialTop + 'px';
+    draggingEl.style.right = 'auto';
+    draggingEl.style.bottom = 'auto';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if(!draggingEl) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    draggingEl.style.left = (initialLeft + dx) + 'px';
+    draggingEl.style.top = (initialTop + dy) + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if(draggingEl){
+      draggingEl.classList.remove('dragging');
+      draggingEl = null;
+    }
+  });
+
+  document.getElementById('btn-print-card').addEventListener('click', () => {
+    const singleContainer = document.getElementById('print-single-container');
+    singleContainer.innerHTML = `<div class="card-print-item" style="position:relative;width:85.6mm;height:54mm;overflow:hidden;background:#fff;border:1px solid #ccc;">${cardCanvas.innerHTML}</div>`;
+    window.print();
+  });
+
+  document.getElementById('btn-print-all').addEventListener('click', () => {
+    const allContainer = document.getElementById('print-all-container');
+    allContainer.innerHTML = users.map(u => {
+      // Create a temporary clone clone logic for batch printing
+      return `<div class="card-print-item" style="position:relative;width:85.6mm;height:54mm;overflow:hidden;background:#fff;border:1px solid #ccc;page-break-inside:avoid;margin:4mm;display:inline-block;">${cardCanvas.innerHTML}</div>`;
+    }).join('');
+    window.print();
+  });
 
   <!-- ===== SCAN VIEW ===== -->
   <section class="view active" id="view-scan">

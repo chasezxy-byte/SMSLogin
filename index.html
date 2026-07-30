@@ -214,6 +214,81 @@
     z-index:200;opacity:0;pointer-events:none;transition:all .25s ease;
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  /* ===== CARD DESIGNER ===== */
+  .card-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:20px;}
+  .card-toolbar .grp{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .card-toolbar select{min-width:200px;}
+  .btn.toggle-active{background:var(--navy);color:#fff;}
+
+  .card-stage{display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .card-canvas{
+    position:relative;
+    width:100%;max-width:560px;
+    aspect-ratio:1.586/1;
+    background:#fff;border:2px solid var(--line);border-radius:16px;
+    overflow:hidden;
+    container-type:inline-size;
+    container-name:card;
+  }
+  .card-canvas.unlocked{background-image:
+      linear-gradient(rgba(29,46,79,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(29,46,79,0.06) 1px, transparent 1px);
+    background-size:5% 5%;
+  }
+  .card-el{
+    position:absolute;
+    color:var(--navy);
+    white-space:nowrap;
+    line-height:1.15;
+    font-weight:700;
+  }
+  .card-canvas.unlocked .card-el{cursor:grab;outline:1.5px dashed transparent;}
+  .card-canvas.unlocked .card-el:hover{outline-color:var(--navy-soft);}
+  .card-el.selected{outline:2px dashed var(--red) !important;}
+  .card-el.dragging{cursor:grabbing;opacity:0.85;}
+  .card-el[data-key="title"]{font-weight:700;}
+  .card-el .sub{font-weight:400;color:var(--navy-soft);}
+
+  .card-photo-box{
+    width:100%;height:100%;border-radius:10px;border:2px solid var(--line);
+    background:#f0f1f4;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .card-photo-box img{width:100%;height:100%;object-fit:cover;display:block;}
+  .card-photo-box svg{width:55%;height:55%;color:var(--navy-soft);}
+  .card-qr-box{
+    width:100%;height:100%;background:#fff;display:flex;align-items:center;justify-content:center;
+    border-radius:6px;
+  }
+  .card-qr-box canvas, .card-qr-box img{width:100% !important;height:100% !important;}
+
+  .card-settings{
+    width:100%;max-width:560px;border:2px solid var(--line-soft);border-radius:12px;
+    padding:14px 18px;display:none;gap:14px;flex-wrap:wrap;align-items:center;background:var(--soft);
+  }
+  .card-settings.show{display:flex;}
+  .card-settings .setting-group{display:flex;align-items:center;gap:8px;font-size:13.5px;}
+  .card-settings input[type=range]{width:130px;}
+  .card-settings label.chk{display:flex;align-items:center;gap:6px;cursor:pointer;}
+
+  .card-hint{font-size:13px;color:var(--navy-soft);text-align:center;max-width:560px;}
+
+  #print-all-container{display:none;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #print-single-container, #print-single-container *,
+    #print-all-container, #print-all-container *{visibility:visible;}
+    #print-single-container, #print-all-container{
+      position:absolute;top:0;left:0;width:100%;display:block;
+    }
+    .card-print-item{
+      width:85.6mm;height:54mm;position:relative;border:1px solid #ccc;
+      container-type:inline-size;container-name:card;overflow:hidden;
+      page-break-inside:avoid;margin:4mm;display:inline-block;
+    }
+    @page{margin:8mm;}
+  }
 </style>
 </head>
 <body>
@@ -223,6 +298,7 @@
   <div class="tabs">
     <button class="tab active" data-view="scan">វត្តមាន</button>
     <button class="tab" data-view="users">គ្រប់គ្រង</button>
+    <button class="tab" data-view="card">រចនាកាត</button>
     <button class="tab" data-view="log">បញ្ជី</button>
   </div>
 </div>
@@ -322,6 +398,56 @@
     </div>
   </section>
 
+  <!-- ===== CARD DESIGNER VIEW ===== -->
+  <section class="view" id="view-card">
+    <h2 class="section-title">រចនាបែបបទកាតសម្គាល់ខ្លួន</h2>
+    <div class="card-toolbar">
+      <div class="grp">
+        <select id="card-preview-select">
+          <option value="">— គំរូ (Placeholder) —</option>
+        </select>
+      </div>
+      <div class="grp">
+        <button class="btn" id="btn-toggle-lock">🔓 ដោះសោ ដើម្បីរៀបចំទីតាំង</button>
+        <button class="btn" id="btn-reset-layout">កំណត់ឡើងវិញ</button>
+      </div>
+      <div class="grp">
+        <button class="btn solid" id="btn-print-card">បោះពុម្ពកាតនេះ</button>
+        <button class="btn solid" id="btn-print-all">បោះពុម្ពកាតទាំងអស់</button>
+      </div>
+    </div>
+
+    <div class="card-hint">ចុច "ដោះសោ" រួចអូសធាតុនីមួយៗទៅកន្លែងដែលអ្នកចង់បាន។ ចុចលើធាតុមួយ ដើម្បីលៃតម្រូវទំហំ ឬលាក់វា។</div>
+
+    <div class="card-stage" style="margin-top:16px;">
+      <div class="card-canvas" id="card-canvas">
+        <div class="card-el" data-key="title">សាលា Checkpoint</div>
+        <div class="card-el" data-key="photo"><div class="card-photo-box" id="card-photo-box">
+          <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6"><circle cx="50" cy="34" r="19"/><path d="M18 88 C18 62 34 54 50 54 C66 54 82 62 82 88" stroke-linecap="round"/></svg>
+        </div></div>
+        <div class="card-el" data-key="name" id="ce-name">ឈ្មោះគំរូ</div>
+        <div class="card-el" data-key="id" id="ce-id"><span class="sub">អត្តលេខ៖ </span>S-0000</div>
+        <div class="card-el" data-key="role" id="ce-role"><span class="sub">តួនាទី៖ </span>សិស្ស</div>
+        <div class="card-el" data-key="group" id="ce-group"><span class="sub">ថ្នាក់/ផ្នែក៖ </span>—</div>
+        <div class="card-el" data-key="room" id="ce-room"><span class="sub">បន្ទប់៖ </span>—</div>
+        <div class="card-el" data-key="year" id="ce-year"><span class="sub">ឆ្នាំសិក្សា៖ </span>—</div>
+        <div class="card-el" data-key="qr"><div class="card-qr-box" id="card-qr-box"></div></div>
+      </div>
+
+      <div class="card-settings" id="card-settings">
+        <div class="setting-group" id="size-setting" style="display:none;">
+          <span>ទំហំ</span>
+          <input type="range" id="setting-size" min="2" max="50" step="0.5">
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="setting-visible" checked>
+          បង្ហាញធាតុនេះ
+        </label>
+        <button class="btn" id="setting-deselect" style="padding:6px 12px;font-size:12.5px;">រួចរាល់</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== LOG VIEW ===== -->
   <section class="view" id="view-log">
     <h2 class="section-title">បញ្ជីវត្តមាន</h2>
@@ -366,6 +492,21 @@
       <label>ឆ្នាំសិក្សា</label>
       <input type="text" id="f-year" placeholder="ឧ. ២០២៥-២០២៦">
     </div>
+    <div class="field">
+      <label>រូបថតមុខ</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:56px;height:56px;border-radius:10px;border:2px solid var(--line);overflow:hidden;background:#f0f1f4;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <img id="f-photo-preview" style="width:100%;height:100%;object-fit:cover;display:none;">
+          <svg id="f-photo-placeholder-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="6" style="width:60%;height:60%;color:var(--navy-soft);">
+            <circle cx="50" cy="34" r="19"/>
+            <path d="M18 88 C18 62 34 54 50 54 C66 54 82 62 82 88" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <input type="file" accept="image/*" id="f-photo-input" style="flex:1;">
+        <button class="btn" id="f-photo-clear" type="button">លុបរូប</button>
+      </div>
+      <input type="hidden" id="f-photo-data">
+    </div>
     <div class="modal-actions">
       <button class="btn" id="user-modal-cancel">បោះបង់</button>
       <button class="btn solid" id="user-modal-save">រក្សាទុក</button>
@@ -386,6 +527,9 @@
     </div>
   </div>
 </div>
+
+<div id="print-single-container"></div>
+<div id="print-all-container"></div>
 
 <div class="toast" id="toast"></div>
 
@@ -431,14 +575,11 @@
     users: document.getElementById('view-users'),
     log: document.getElementById('view-log'),
   };
-  
   tabs.forEach(t => t.addEventListener('click', () => {
     tabs.forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     Object.values(views).forEach(v=>v.classList.remove('active'));
-    if(views[t.dataset.view]){
-      views[t.dataset.view].classList.add('active');
-    }
+    views[t.dataset.view].classList.add('active');
     if(t.dataset.view === 'users') renderUserTable();
     if(t.dataset.view === 'log') renderLog();
   }));
@@ -600,8 +741,8 @@
     setFields(user);
     avatarNote.textContent = user.name + (currentMode === 'in' ? ' បានចូល' : ' បានចេញ');
     toast((currentMode === 'in' ? 'បានកត់ត្រា៖ ចូល — ' : 'បានកត់ត្រា៖ ចេញ — ') + user.name);
-    if(views.users && views.users.classList.contains('active')) renderUserTable();
-    if(views.log && views.log.classList.contains('active')) renderLog();
+    if(views.users.classList.contains('active')) renderUserTable();
+    if(views.log.classList.contains('active')) renderLog();
   }
 
   function fmtTime(iso){
@@ -701,6 +842,46 @@
   const fRoom = document.getElementById('f-room');
   const fYear = document.getElementById('f-year');
   const editUserId = document.getElementById('edit-user-id');
+  const fPhotoInput = document.getElementById('f-photo-input');
+  const fPhotoData = document.getElementById('f-photo-data');
+  const fPhotoPreview = document.getElementById('f-photo-preview');
+  const fPhotoPlaceholderIcon = document.getElementById('f-photo-placeholder-icon');
+  const fPhotoClear = document.getElementById('f-photo-clear');
+
+  function setPhotoPreview(dataUrl){
+    fPhotoData.value = dataUrl || '';
+    if(dataUrl){
+      fPhotoPreview.src = dataUrl;
+      fPhotoPreview.style.display = 'block';
+      fPhotoPlaceholderIcon.style.display = 'none';
+    } else {
+      fPhotoPreview.style.display = 'none';
+      fPhotoPlaceholderIcon.style.display = 'block';
+    }
+  }
+
+  fPhotoInput.addEventListener('change', () => {
+    const file = fPhotoInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // resize down to keep localStorage small
+        const maxDim = 300;
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h * (maxDim / w)); w = maxDim; }
+        else if(h > maxDim){ w = Math.round(w * (maxDim / h)); h = maxDim; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        setPhotoPreview(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  fPhotoClear.addEventListener('click', () => { setPhotoPreview(''); fPhotoInput.value = ''; });
 
   function openUserModal(user){
     document.getElementById('user-modal-title').textContent = user ? 'កែសម្រួលព័ត៌មាន' : 'បន្ថែមថ្មី';
@@ -712,6 +893,8 @@
     fGroup.value = user ? (user.group || '') : '';
     fRoom.value = user ? (user.room || '') : '';
     fYear.value = user ? (user.year || '') : '';
+    fPhotoInput.value = '';
+    setPhotoPreview(user ? (user.photo || '') : '');
     userModalOverlay.classList.add('active');
     fName.focus();
   }
@@ -728,24 +911,27 @@
     const group = fGroup.value.trim();
     const room = fRoom.value.trim();
     const year = fYear.value.trim();
+    const photo = fPhotoData.value;
     if(!name || !id){ toast('ត្រូវការទាំងឈ្មោះ និងលេខអត្តលេខ'); return; }
 
     const editingId = editUserId.value;
     if(editingId){
       const u = findUser(editingId);
-      u.name = name; u.role = role; u.group = group; u.room = room; u.year = year;
+      u.name = name; u.role = role; u.group = group; u.room = room; u.year = year; u.photo = photo;
     } else {
       if(findUser(id)){ toast('លេខអត្តលេខនេះមានរួចហើយ'); return; }
-      users.push({ id, name, role, group, room, year });
+      users.push({ id, name, role, group, room, year, photo });
     }
     saveUsers(users);
     closeUserModal();
     renderUserTable();
+    populateCardPreviewSelect();
     toast('បានរក្សាទុក');
   });
 
   /* ============ QR MODAL ============ */
   const qrModalOverlay = document.getElementById('qr-modal-overlay');
+
 
   function openQrModal(user){
     document.getElementById('qr-name').textContent = user.name;

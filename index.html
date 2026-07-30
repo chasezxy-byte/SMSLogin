@@ -568,18 +568,24 @@
     return h.length ? h[h.length-1].type : null;
   }
 
-  /* ============ NAV ============ */
+/* ============ NAV ============ */
   const tabs = document.querySelectorAll('.tab');
   const views = {
     scan: document.getElementById('view-scan'),
     users: document.getElementById('view-users'),
+    card: document.getElementById('view-card'), // <-- Add this line
     log: document.getElementById('view-log'),
   };
   tabs.forEach(t => t.addEventListener('click', () => {
     tabs.forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     Object.values(views).forEach(v=>v.classList.remove('active'));
-    views[t.dataset.view].classList.add('active');
+    
+    // Safety check to ensure the view element exists before calling classList
+    if (views[t.dataset.view]) {
+      views[t.dataset.view].classList.add('active');
+    }
+    
     if(t.dataset.view === 'users') renderUserTable();
     if(t.dataset.view === 'log') renderLog();
   }));

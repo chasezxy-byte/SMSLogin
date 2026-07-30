@@ -425,12 +425,14 @@
   }
 
   /* ============ NAV ============ */
-  const tabs = document.querySelectorAll('.tab');
+const tabs = document.querySelectorAll('.tab');
   const views = {
     scan: document.getElementById('view-scan'),
     users: document.getElementById('view-users'),
+    card: document.getElementById('view-card'),
     log: document.getElementById('view-log'),
   };
+  
   tabs.forEach(t => t.addEventListener('click', () => {
     tabs.forEach(x=>x.classList.remove('active'));
     t.classList.add('active');

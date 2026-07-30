@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
@@ -101,7 +101,10 @@
     position:relative;border:2px solid var(--line);border-radius:22px;overflow:hidden;
     background:var(--panel);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;
   }
-  .avatar-box video{width:100%;height:100%;object-fit:cover;display:block;}
+  .avatar-box video{width:100% !important;height:100% !important;object-fit:cover;display:block;}
+  #qr-reader-region{position:relative;}
+  #qr-reader-region video{width:100% !important;height:100% !important;object-fit:cover;}
+  #qr-reader-region img{display:none;}
   .avatar-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--navy);}
   .avatar-placeholder svg{width:120px;height:120px;}
   .avatar-note{font-size:14px;color:var(--navy-soft);}
@@ -242,7 +245,7 @@
         </div>
 
         <div class="avatar-box" id="avatar-box">
-          <video id="video" playsinline muted style="display:none;"></video>
+          <div id="qr-reader-region" style="display:none;width:100%;height:100%;"></div>
           <div class="avatar-placeholder" id="avatar-placeholder">
             <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="4">
               <circle cx="50" cy="34" r="19"/>
@@ -477,16 +480,14 @@
   }
 
   /* ============ SCANNING ============ */
-  const video = document.getElementById('video');
+  const qrRegion = document.getElementById('qr-reader-region');
   const avatarPlaceholder = document.getElementById('avatar-placeholder');
   const avatarNote = document.getElementById('avatar-note');
   const btnStart = document.getElementById('btn-start-scan');
   const btnStop = document.getElementById('btn-stop-scan');
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', {willReadFrequently:true});
 
-  let stream = null;
-  let scanLoopHandle = null;
+  let html5QrCode = null;
+  let scannerRunning = false;
   let lastScanValue = null;
   let lastScanTime = 0;
   let currentMode = 'in'; // 'in' or 'out' — set by the teacher, applies to every scan until changed
@@ -494,43 +495,40 @@
 
   async function startScanner(){
     try{
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      video.srcObject = stream;
-      await video.play();
-      video.style.display = 'block';
+      if(!html5QrCode) html5QrCode = new Html5Qrcode('qr-reader-region');
+      qrRegion.style.display = 'block';
       avatarPlaceholder.style.display = 'none';
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          const now = Date.now();
+          if(decodedText !== lastScanValue || now - lastScanTime > 3500){
+            lastScanValue = decodedText;
+            lastScanTime = now;
+            loadFromCode(decodedText);
+          }
+        },
+        () => { /* ignore per-frame "no QR found" noise */ }
+      );
+      scannerRunning = true;
       btnStart.style.display = 'none';
       btnStop.style.display = 'inline-block';
-      tick();
     }catch(err){
+      qrRegion.style.display = 'none';
+      avatarPlaceholder.style.display = 'flex';
       toast('មិនអាចប្រើកាមេរ៉ាបានទេ សូមប្រើប្រអប់វាយបញ្ចូលខាងលើជំនួស');
     }
   }
-  function stopScanner(){
-    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
-    if(scanLoopHandle) cancelAnimationFrame(scanLoopHandle);
-    video.style.display = 'none';
+  async function stopScanner(){
+    if(html5QrCode && scannerRunning){
+      try{ await html5QrCode.stop(); html5QrCode.clear(); }catch(e){}
+    }
+    scannerRunning = false;
+    qrRegion.style.display = 'none';
     avatarPlaceholder.style.display = 'flex';
     btnStart.style.display = 'inline-block';
     btnStop.style.display = 'none';
-  }
-  function tick(){
-    if(video.readyState === video.HAVE_ENOUGH_DATA){
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-      if(code && code.data){
-        const now = Date.now();
-        if(code.data !== lastScanValue || now - lastScanTime > 3500){
-          lastScanValue = code.data;
-          lastScanTime = now;
-          loadFromCode(code.data);
-        }
-      }
-    }
-    scanLoopHandle = requestAnimationFrame(tick);
   }
   btnStart.addEventListener('click', startScanner);
   btnStop.addEventListener('click', stopScanner);

@@ -649,21 +649,24 @@
   const views = {
     scan: document.getElementById('view-scan'),
     users: document.getElementById('view-users'),
-    card: document.getElementById('view-card'), // <-- Add this line
+    card: document.getElementById('view-card'), // <-- Added card view here
     log: document.getElementById('view-log'),
   };
   tabs.forEach(t => t.addEventListener('click', () => {
-    tabs.forEach(x=>x.classList.remove('active'));
+    tabs.forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    Object.values(views).forEach(v=>v.classList.remove('active'));
+    Object.values(views).forEach(v => {
+      if (v) v.classList.remove('active');
+    });
     
-    // Safety check to ensure the view element exists before calling classList
-    if (views[t.dataset.view]) {
-      views[t.dataset.view].classList.add('active');
+    // Safely check and activate the target view
+    const targetView = views[t.dataset.view];
+    if (targetView) {
+      targetView.classList.add('active');
     }
     
-    if(t.dataset.view === 'users') renderUserTable();
-    if(t.dataset.view === 'log') renderLog();
+    if (t.dataset.view === 'users') renderUserTable();
+    if (t.dataset.view === 'log') renderLog();
   }));
 
   /* ============ TOAST ============ */
